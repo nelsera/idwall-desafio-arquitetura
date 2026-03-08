@@ -1,0 +1,43 @@
+@startuml c4-containers
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_LEFT_RIGHT()
+
+title C4 Model - Diagrama de Containers
+
+' Atores
+Person(usuario, "Usuário", "Consulta transações e recebe recomendações.")
+
+' Sistema principal
+System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
+
+  ' Containers
+  Container(api, "API", "Node.js / TypeScript", "Recebe requisições, registra solicitações e expõe consultas de status e resultado.")
+
+  Container(fila, "Fila de Processamento", "Redis / RabbitMQ", "Desacopla a API do processamento e distribui tarefas.")
+
+  Container(worker, "Worker de Processamento", "Node.js / TypeScript", "Busca transações, classifica dados e persiste resultados.")
+
+  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, transações processadas e recomendações.")
+
+  Container(cache, "Cache", "Redis", "Acelera consultas frequentes de status e resultado.")
+}
+
+' Sistemas externos
+System_Ext(bancos, "APIs de Bancos Parceiros", "Fornecem as transações do usuário.")
+System_Ext(ml, "Serviço de Classificação", "Classifica transações financeiras.")
+
+' Relacionamentos
+Rel(usuario, api, "Consulta recomendações", "HTTPS")
+
+Rel(api, fila, "Publica tarefas de processamento", "RabbitMQ / Redis")
+Rel(api, db, "Lê e grava solicitações", "PostgreSQL")
+Rel(api, cache, "Consulta dados recentes", "Redis")
+
+Rel(worker, fila, "Consome tarefas", "RabbitMQ / Redis")
+Rel(worker, bancos, "Busca transações", "HTTPS")
+Rel(worker, ml, "Classifica transações", "HTTPS")
+Rel(worker, db, "Persiste resultados", "PostgreSQL")
+Rel(worker, cache, "Atualiza dados recentes", "Redis")
+
+@enduml
