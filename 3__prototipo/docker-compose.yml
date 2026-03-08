@@ -1,0 +1,227 @@
+x-common-env: &common-env
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: recommendations
+  BANK_API_URL: http://bank-api-dev:3001
+  CLASSIFICATION_API_URL: http://classification-api-dev:3002
+
+x-common-env-prod: &common-env-prod
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: recommendations
+  BANK_API_URL: http://bank-api:3001
+  CLASSIFICATION_API_URL: http://classification-api:3002
+
+services:
+  redis:
+    image: redis:7
+    container_name: recommendation-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: recommendation-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  postgres:
+    image: postgres:16
+    container_name: recommendation-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: recommendations
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d recommendations"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api-dev:
+    profiles: ["dev"]
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    container_name: recommendation-api-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      <<: *common-env
+      NODE_ENV: development
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      bank-api-dev:
+        condition: service_started
+      classification-api-dev:
+        condition: service_started
+
+  worker-dev:
+    profiles: ["dev"]
+    build:
+      context: ./worker
+      dockerfile: Dockerfile.dev
+    container_name: recommendation-worker-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      <<: *common-env
+      NODE_ENV: development
+    volumes:
+      - ./worker:/app
+      - /app/node_modules
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      bank-api-dev:
+        condition: service_started
+      classification-api-dev:
+        condition: service_started
+
+  bank-api-dev:
+    profiles: ["dev"]
+    build:
+      context: ./bank-mock
+      dockerfile: Dockerfile.dev
+    container_name: bank-api-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./bank-mock:/app
+      - /app/node_modules
+
+  classification-api-dev:
+    profiles: ["dev"]
+    build:
+      context: ./classification-mock
+      dockerfile: Dockerfile.dev
+    container_name: classification-api-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev"
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+    ports:
+      - "3002:3002"
+    volumes:
+      - ./classification-mock:/app
+      - /app/node_modules
+
+  api:
+    profiles: ["prod"]
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: recommendation-api
+    environment:
+      <<: *common-env-prod
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      bank-api:
+        condition: service_started
+      classification-api:
+        condition: service_started
+
+  worker:
+    profiles: ["prod"]
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: recommendation-worker
+    environment:
+      <<: *common-env-prod
+      NODE_ENV: production
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      bank-api:
+        condition: service_started
+      classification-api:
+        condition: service_started
+
+  bank-api:
+    profiles: ["prod"]
+    build:
+      context: ./bank-mock
+      dockerfile: Dockerfile
+    container_name: bank-api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+    ports:
+      - "3001:3001"
+
+  classification-api:
+    profiles: ["prod"]
+    build:
+      context: ./classification-mock
+      dockerfile: Dockerfile
+    container_name: classification-api
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+    ports:
+      - "3002:3002"
+
+volumes:
+  postgres_data:
