@@ -1,0 +1,23 @@
+@startuml c4-contexto
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_LEFT_RIGHT()
+
+title C4 Model - Diagrama de Contexto
+
+' Atores
+Person(usuario, "Usuário", "Consulta transações e recebe recomendações.")
+
+' Sistema principal
+System(sistema, "Plataforma de Recomendação de Gastos", "Orquestra ingestão, processamento e consulta de transações.")
+
+' Sistemas externos
+System_Ext(bancos, "APIs de Bancos Parceiros", "Fornecem as transações do usuário.")
+System_Ext(ml, "Serviço de Classificação", "Classifica transações financeiras.")
+
+' Relacionamentos
+Rel(usuario, sistema, "Consulta recomendações", "HTTPS")
+Rel(sistema, bancos, "Busca transações", "API")
+Rel(sistema, ml, "Classifica transações", "API")
+
+@enduml
