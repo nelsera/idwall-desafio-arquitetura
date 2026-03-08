@@ -1,0 +1,66 @@
+@startuml c4-componentes
+!includeurl https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_LEFT_RIGHT()
+
+title C4 Model - Diagrama de Componentes
+
+' Atores
+Person(usuario, "Usuário", "Consulta transações e recebe recomendações.")
+
+' Sistemas externos
+System_Ext(bancos, "APIs de Bancos Parceiros", "Fornecem as transações do usuário.")
+System_Ext(ml, "Serviço de Classificação", "Classifica transações financeiras.")
+
+' Containers e componentes
+System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
+
+  Container_Boundary(api_container, "API") {
+    Component(controller, "RecommendationController", "Node.js", "Recebe requisições e retorna status e resultado.")
+    Component(service, "RecommendationService", "Node.js", "Orquestra o fluxo da solicitação.")
+    Component(repository, "RequestRepository", "Node.js", "Persiste e consulta solicitações no banco.")
+    Component(cache_adapter, "CacheAdapter", "Node.js", "Consulta dados recentes no cache.")
+    Component(queue_publisher, "QueuePublisher", "Node.js", "Publica tarefas na fila.")
+  }
+
+  Container_Boundary(worker_container, "Worker de Processamento") {
+    Component(queue_consumer, "QueueConsumer", "Node.js", "Consome tarefas da fila.")
+    Component(processor, "RecommendationProcessor", "Node.js", "Processa transações e monta recomendações.")
+    Component(bank_client, "BankClient", "Node.js", "Consulta transações nas APIs de bancos parceiros.")
+    Component(classification_client, "ClassificationClient", "Node.js", "Envia transações para classificação.")
+    Component(result_repository, "ResultRepository", "Node.js", "Persiste transações e recomendações.")
+    Component(cache_updater, "CacheUpdater", "Node.js", "Atualiza dados recentes no cache.")
+  }
+
+  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, transações processadas e recomendações.")
+  Container(fila, "Fila de Processamento", "Redis / RabbitMQ", "Distribui tarefas de processamento.")
+  Container(cache, "Cache", "Redis", "Armazena status e resultados recentes.")
+}
+
+' Relacionamentos
+Rel(usuario, controller, "Consulta recomendações", "HTTPS")
+
+Rel(controller, service, "Chama")
+Rel(service, repository, "Registra solicitação", "PostgreSQL")
+Rel(service, cache_adapter, "Consulta status e resultado", "Redis")
+Rel(service, queue_publisher, "Publica tarefa", "RabbitMQ / Redis")
+
+Rel(queue_publisher, fila, "Envia tarefa", "RabbitMQ / Redis")
+Rel(queue_consumer, fila, "Consome tarefa", "RabbitMQ / Redis")
+Rel(queue_consumer, processor, "Entrega tarefa")
+
+Rel(processor, bank_client, "Busca transações")
+Rel(bank_client, bancos, "Busca transações", "HTTPS")
+
+Rel(processor, classification_client, "Solicita classificação")
+Rel(classification_client, ml, "Classifica transações", "HTTPS")
+
+Rel(processor, result_repository, "Persiste resultados", "PostgreSQL")
+Rel(processor, cache_updater, "Atualiza cache", "Redis")
+
+Rel(repository, db, "Lê e grava solicitações", "PostgreSQL")
+Rel(result_repository, db, "Lê e grava resultados", "PostgreSQL")
+Rel(cache_adapter, cache, "Consulta dados recentes", "Redis")
+Rel(cache_updater, cache, "Atualiza dados recentes", "Redis")
+
+@enduml

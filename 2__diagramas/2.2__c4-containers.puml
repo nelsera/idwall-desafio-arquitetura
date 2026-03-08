@@ -12,11 +12,11 @@ Person(usuario, "Usuário", "Consulta transações e recebe recomendações.")
 System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
 
   ' Containers
-  Container(api, "API", "Node.js / TypeScript", "Recebe requisições, registra solicitações e expõe consultas de status e resultado.")
+  Container(api, "API", "Node.js", "Recebe requisições, registra solicitações e expõe consultas de status e resultado.")
 
   Container(fila, "Fila de Processamento", "Redis / RabbitMQ", "Desacopla a API do processamento e distribui tarefas.")
 
-  Container(worker, "Worker de Processamento", "Node.js / TypeScript", "Busca transações, classifica dados e persiste resultados.")
+  Container(worker, "Worker de Processamento", "Node.js", "Busca transações, classifica dados e persiste resultados.")
 
   ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, transações processadas e recomendações.")
 
