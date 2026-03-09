@@ -25,14 +25,15 @@ System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
 
   Container_Boundary(worker_container, "Worker de Processamento") {
     Component(queue_consumer, "QueueConsumer", "Node.js", "Consome tarefas, controla tentativas e encaminha falhas definitivas.")
-    Component(processor, "RecommendationProcessor", "Node.js", "Processa transações por período e monta a resposta final de despesas.")
+    Component(processor, "RecommendationProcessor", "Node.js", "Processa transações por período, solicita classificação e monta as despesas resultantes.")
     Component(bank_client, "BankClient", "Node.js", "Consulta transações por usuário e período nas APIs bancárias.")
     Component(classification_client, "ClassificationClient", "Node.js", "Envia transações para classificação.")
-    Component(result_repository, "ResultRepository", "Node.js", "Atualiza status e persiste resultados das solicitações.")
+    Component(result_repository, "ResultRepository", "Node.js", "Atualiza status da solicitação e persiste despesas e transações classificadas de forma normalizada.")
     Component(cache_updater, "CacheUpdater", "Node.js", "Atualiza status e resultados recentes no cache.")
   }
 
-  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, janela de consulta, status de processamento e resultados.")
+  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações de recomendação, janela de consulta, status de processamento e dados normalizados de despesas e transações classificadas.")
+
   Container(fila, "Fila de Processamento", "RabbitMQ", "Distribui tarefas de processamento.")
   Container(dlq, "Fila de Erros (Dead Letter Queue)", "RabbitMQ", "Armazena mensagens que excederam o limite de tentativas.")
   Container(cache, "Cache", "Redis", "Armazena status e resultados recentes.")
@@ -57,11 +58,12 @@ Rel(bank_client, bancos, "Busca transações", "HTTPS")
 Rel(processor, classification_client, "Solicita classificação")
 Rel(classification_client, ml, "Classifica transações", "HTTPS")
 
-Rel(processor, result_repository, "Persiste resultados", "PostgreSQL")
+Rel(processor, result_repository, "Persiste resultados estruturados", "PostgreSQL")
 Rel(processor, cache_updater, "Atualiza cache", "Redis")
 
 Rel(repository, db, "Lê e grava solicitações", "PostgreSQL")
-Rel(result_repository, db, "Atualiza status e resultados", "PostgreSQL")
+Rel(result_repository, db, "Atualiza status e persiste despesas e transações", "PostgreSQL")
+
 Rel(cache_adapter, cache, "Consulta resultados recentes", "Redis")
 Rel(cache_updater, cache, "Atualiza status e resultados", "Redis")
 

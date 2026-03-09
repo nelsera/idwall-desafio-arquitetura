@@ -20,7 +20,7 @@ System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
 
   Container(worker, "Worker de Processamento", "Node.js", "Consome tarefas, consulta transações por período, classifica despesas e persiste resultados.")
 
-  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, janela de consulta, status de processamento e resultados.")
+  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, janela de consulta, status de processamento e dados normalizados de despesas e transações.")
 
   Container(cache, "Cache", "Redis", "Armazena status e resultados recentes para consultas rápidas.")
 }

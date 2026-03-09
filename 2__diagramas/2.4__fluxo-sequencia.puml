@@ -12,28 +12,35 @@ participant "APIs de Bancos Parceiros" as bancos
 participant "Serviço de Classificação" as ml
 collections Redis as cache
 
-usuario -> api : Solicita recomendações
+usuario -> api : Solicita recomendações por período
 api -> db : Registra solicitação (pending)
 api -> fila : Publica tarefa
 api --> usuario : Retorna requestId e status inicial
 
 fila -> worker : Entrega tarefa
-worker -> bancos : Busca transações
+worker -> bancos : Busca transações por período
 bancos --> worker : Retorna transações
 
 worker -> ml : Classifica transações
 ml --> worker : Retorna classificação
 
-worker -> db : Persiste resultados (completed)
-worker -> cache : Atualiza status e resultado
+worker -> db : Atualiza solicitação e persiste despesas classificadas
+worker -> cache : Atualiza status e resultado recente
 
 usuario -> api : Consulta status / resultado
 api -> cache : Consulta dados recentes
 cache --> api : Retorna status / resultado
-api --> usuario : Retorna resposta
+
+alt Cache miss
+  api -> db : Consulta solicitação e despesas persistidas
+  db --> api : Retorna dados estruturados
+end
+
+api --> usuario : Retorna requestId, status e resultado
 
 alt Falha no processamento
   worker -> db : Atualiza solicitação (failed)
+  worker -> cache : Atualiza status de falha
   worker -> dlq : Encaminha falha definitiva
 end
 

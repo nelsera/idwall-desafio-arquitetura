@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
+
 import { redisClient } from "../infra/redis.js";
 import { getRabbitChannel } from "../infra/rabbitmq.js";
-import {
-  RecommendationRequestRepository,
-  type RecommendationRequestRecord,
-} from "../repositories/recommendation-request.repository.js";
+import { RecommendationExpenseRepository } from "../repositories/recommendation-expense.repository.js";
+import { RecommendationRequestRepository } from "../repositories/recommendation-request.repository.js";
 
 const queueName = "recommendation.requests";
 
@@ -16,23 +15,19 @@ type CreateRecommendationInput = {
 
 type RecommendationResponse = {
   requestId: string;
-  id: string;
-  initialDate: string;
-  finalDate: string;
   status: string;
-  requestedAt: string;
-  processedAt: string | null;
-  result: unknown;
-  source: "redis" | "postgres";
+  result?: unknown;
 };
 
 export class RecommendationService {
   constructor(
     private readonly recommendationRequestRepository: RecommendationRequestRepository,
+    private readonly recommendationExpenseRepository: RecommendationExpenseRepository,
   ) {}
 
   async createRecommendationRequest(input: CreateRecommendationInput) {
     const requestId = randomUUID();
+
     const requestedAt = new Date().toISOString();
 
     await this.recommendationRequestRepository.create({
@@ -68,39 +63,53 @@ export class RecommendationService {
     };
   }
 
-  async getRecommendationByRequestId(requestId: string) {
+  async getRecommendationByRequestId(
+    requestId: string,
+  ): Promise<RecommendationResponse | null> {
     const cached = await redisClient.get(`recommendation:${requestId}`);
 
     if (cached) {
-      return JSON.parse(cached);
+      const parsedCached = JSON.parse(cached) as RecommendationResponse;
+
+      return {
+        requestId,
+        status: parsedCached.status,
+        result: parsedCached.result,
+      };
     }
 
-    const record =
+    const request =
       await this.recommendationRequestRepository.findByRequestId(requestId);
 
-    if (!record) {
+    if (!request) {
       return null;
     }
 
-    return {
-      status: record.status,
-      result: record.result,
-    };
-  }
+    if (request.status === "pending") {
+      return {
+        requestId,
+        status: "pending",
+      };
+    }
 
-  private mapDatabaseRecordToResponse(
-    request: RecommendationRequestRecord,
-  ): RecommendationResponse {
+    const expenses =
+      await this.recommendationExpenseRepository.findByRequestId(requestId);
+
+    if (request.status === "failed") {
+      return {
+        requestId,
+        status: "failed",
+        result: expenses.length > 0 ? expenses : undefined,
+      };
+    }
+
     return {
-      requestId: request.requestId,
-      id: request.userId,
-      initialDate: request.initialDate,
-      finalDate: request.finalDate,
+      requestId,
       status: request.status,
-      requestedAt: request.requestedAt,
-      processedAt: request.processedAt,
-      result: request.result,
-      source: "postgres",
+      result: {
+        id: request.userId,
+        expenses,
+      },
     };
   }
 }

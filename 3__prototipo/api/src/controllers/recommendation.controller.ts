@@ -52,33 +52,33 @@ export class RecommendationController {
     }
   }
 
-async getRecommendationByRequestId(
-  req: Request<{ requestId: string }>,
-  res: Response,
-) {
-  try {
-    const { requestId } = req.params;
+  async getRecommendationByRequestId(
+    req: Request<{ requestId: string }>,
+    res: Response,
+  ) {
+    try {
+      const { requestId } = req.params;
 
-    const recommendation =
-      await this.recommendationService.getRecommendationByRequestId(requestId);
+      const recommendation =
+        await this.recommendationService.getRecommendationByRequestId(requestId);
 
-    if (!recommendation) {
-      return res.status(404).json({
-        message: "recommendation request not found",
+      if (!recommendation) {
+        return res.status(404).json({
+          message: "recommendation request not found",
+        });
+      }
+
+      return res.status(200).json({
+        requestId,
+        status: recommendation.status,
+        result: recommendation.result ?? undefined,
+      });
+    } catch (error) {
+      console.error("Failed to get recommendation", error);
+
+      return res.status(500).json({
+        message: "failed to get recommendation",
       });
     }
-
-    return res.status(200).json({
-      requestId,
-      status: recommendation.status,
-      result: recommendation.result ?? undefined,
-    });
-  } catch (error) {
-    console.error("Failed to get recommendation", error);
-
-    return res.status(500).json({
-      message: "failed to get recommendation",
-    });
   }
-}
 }

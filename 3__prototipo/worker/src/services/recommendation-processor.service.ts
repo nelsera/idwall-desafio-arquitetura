@@ -1,5 +1,6 @@
 import axios from "axios";
 import { redisClient } from "../infra/redis.js";
+import { RecommendationExpenseRepository } from "../repositories/recommendation-expense.repository.js";
 import { RecommendationRequestRepository } from "../repositories/recommendation-request.repository.js";
 import type { RecommendationJob } from "../types/recommendation-job.js";
 
@@ -15,58 +16,60 @@ type ClassifiedTransaction = Transaction & {
   category: string;
 };
 
-type Expense = {
-  categoryId: string;
-  categoryName: string;
-  purchaseId: string;
-  moneySpent: number;
-  purchaseDate: string;
+type AggregatedExpense = {
+  category: string;
+  totalAmount: number;
 };
 
-function mapCategory(category: string): { categoryId: string; categoryName: string } {
-  const normalizedCategory = category.toLowerCase();
+function mapCategoryName(category: string): string {
+  switch (category.toLowerCase()) {
+    case "food":
+      return "Food";
 
-  if (normalizedCategory === "food") {
-    return {
-      categoryId: "cat-food",
-      categoryName: "Food",
-    };
+    case "transport":
+      return "Transport";
+
+    case "entertainment":
+      return "Entertainment";
+
+    case "fuel":
+      return "Fuel";
+
+    default:
+      return "Other";
+  }
+}
+
+function aggregateExpenses(
+  classifiedTransactions: ClassifiedTransaction[],
+): AggregatedExpense[] {
+  const totalsByCategory = new Map<string, number>();
+
+  for (const transaction of classifiedTransactions) {
+    const category = mapCategoryName(transaction.category);
+
+    const currentTotal = totalsByCategory.get(category) ?? 0;
+
+    totalsByCategory.set(category, currentTotal + transaction.amount);
   }
 
-  if (normalizedCategory === "transport") {
-    return {
-      categoryId: "cat-transport",
-      categoryName: "Transport",
-    };
-  }
-
-  if (normalizedCategory === "entertainment") {
-    return {
-      categoryId: "cat-entertainment",
-      categoryName: "Entertainment",
-    };
-  }
-
-  if (normalizedCategory === "fuel") {
-    return {
-      categoryId: "cat-fuel",
-      categoryName: "Fuel",
-    };
-  }
-
-  return {
-    categoryId: "cat-other",
-    categoryName: "Other",
-  };
+  return Array.from(totalsByCategory.entries())
+    .map(([category, totalAmount]) => ({
+      category,
+      totalAmount: Number(totalAmount.toFixed(2)),
+    }))
+    .sort((a, b) => a.category.localeCompare(b.category));
 }
 
 export class RecommendationProcessorService {
   constructor(
     private readonly recommendationRequestRepository: RecommendationRequestRepository,
+    private readonly recommendationExpenseRepository: RecommendationExpenseRepository,
   ) {}
 
   async process(job: RecommendationJob): Promise<void> {
     const bankApiUrl = process.env.BANK_API_URL ?? "http://bank-api-dev:3001";
+
     const classificationApiUrl =
       process.env.CLASSIFICATION_API_URL ?? "http://classification-api-dev:3002";
 
@@ -89,37 +92,21 @@ export class RecommendationProcessorService {
 
     const classifiedTransactions = classificationResponse.data.transactions;
 
-    const expenses: Expense[] = classifiedTransactions.map((transaction) => {
-      const mappedCategory = mapCategory(transaction.category);
+    const expenses = aggregateExpenses(classifiedTransactions);
 
-      return {
-        categoryId: mappedCategory.categoryId,
-        categoryName: mappedCategory.categoryName,
-        purchaseId: transaction.id,
-        moneySpent: transaction.amount,
-        purchaseDate: transaction.date,
-      };
-    });
+    await this.recommendationExpenseRepository.createMany(job.requestId, expenses);
 
-    const result = {
-      id: job.userId,
-      expenses,
-    };
-
-    await this.recommendationRequestRepository.markAsCompleted(job.requestId, result);
+    await this.recommendationRequestRepository.markAsCompleted(job.requestId);
 
     await redisClient.set(
       `recommendation:${job.requestId}`,
       JSON.stringify({
         requestId: job.requestId,
-        id: job.userId,
-        initialDate: job.initialDate,
-        finalDate: job.finalDate,
         status: "completed",
-        requestedAt: job.requestedAt,
-        processedAt: new Date().toISOString(),
-        result,
-        source: "redis",
+        result: {
+          id: job.userId,
+          expenses,
+        },
       }),
       {
         EX: 3600,
