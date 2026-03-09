@@ -14,11 +14,13 @@ System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
   ' Containers
   Container(api, "API", "Node.js", "Recebe requisições, registra solicitações e expõe consultas de status e resultado.")
 
-  Container(fila, "Fila de Processamento", "Redis / RabbitMQ", "Desacopla a API do processamento e distribui tarefas.")
+  Container(fila, "Fila de Processamento", "RabbitMQ", "Recebe tarefas de recomendação publicadas pela API.")
 
-  Container(worker, "Worker de Processamento", "Node.js", "Busca transações, classifica dados e persiste resultados.")
+  Container(dlq, "Fila de Erros (Dead Letter Queue)", "RabbitMQ", "Armazena mensagens que excederam o limite de tentativas de processamento.")
 
-  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, transações processadas e recomendações.")
+  Container(worker, "Worker de Processamento", "Node.js", "Consome tarefas, busca transações, classifica dados e persiste resultados.")
+
+  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, status de processamento e resultados.")
 
   Container(cache, "Cache", "Redis", "Acelera consultas frequentes de status e resultado.")
 }
@@ -30,11 +32,12 @@ System_Ext(ml, "Serviço de Classificação", "Classifica transações financeir
 ' Relacionamentos
 Rel(usuario, api, "Consulta recomendações", "HTTPS")
 
-Rel(api, fila, "Publica tarefas de processamento", "RabbitMQ / Redis")
+Rel(api, fila, "Publica tarefas de processamento", "RabbitMQ")
 Rel(api, db, "Lê e grava solicitações", "PostgreSQL")
 Rel(api, cache, "Consulta dados recentes", "Redis")
 
-Rel(worker, fila, "Consome tarefas", "RabbitMQ / Redis")
+Rel(worker, fila, "Consome tarefas", "RabbitMQ")
+Rel(worker, dlq, "Encaminha falhas definitivas", "RabbitMQ")
 Rel(worker, bancos, "Busca transações", "HTTPS")
 Rel(worker, ml, "Classifica transações", "HTTPS")
 Rel(worker, db, "Persiste resultados", "PostgreSQL")

@@ -5,14 +5,15 @@ title Fluxo de Processamento de Recomendações
 actor Usuario as usuario
 participant API as api
 database PostgreSQL as db
-queue "Fila de Processamento" as fila
+queue "RabbitMQ" as fila
+queue "Fila de Erros (DLQ)" as dlq
 participant "Worker de Processamento" as worker
 participant "APIs de Bancos Parceiros" as bancos
 participant "Serviço de Classificação" as ml
 collections Redis as cache
 
 usuario -> api : Solicita recomendações
-api -> db : Registra solicitação
+api -> db : Registra solicitação (pending)
 api -> fila : Publica tarefa
 api --> usuario : Retorna requestId e status inicial
 
@@ -23,12 +24,17 @@ bancos --> worker : Retorna transações
 worker -> ml : Classifica transações
 ml --> worker : Retorna classificação
 
-worker -> db : Persiste resultados
+worker -> db : Persiste resultados (completed)
 worker -> cache : Atualiza status e resultado
 
 usuario -> api : Consulta status / resultado
 api -> cache : Consulta dados recentes
 cache --> api : Retorna status / resultado
 api --> usuario : Retorna resposta
+
+alt Falha no processamento
+  worker -> db : Atualiza solicitação (failed)
+  worker -> dlq : Encaminha falha definitiva
+end
 
 @enduml

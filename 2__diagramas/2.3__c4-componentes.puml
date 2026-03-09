@@ -24,7 +24,7 @@ System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
   }
 
   Container_Boundary(worker_container, "Worker de Processamento") {
-    Component(queue_consumer, "QueueConsumer", "Node.js", "Consome tarefas da fila.")
+    Component(queue_consumer, "QueueConsumer", "Node.js", "Consome tarefas, controla tentativas e encaminha falhas definitivas.")
     Component(processor, "RecommendationProcessor", "Node.js", "Processa transações e monta recomendações.")
     Component(bank_client, "BankClient", "Node.js", "Consulta transações nas APIs de bancos parceiros.")
     Component(classification_client, "ClassificationClient", "Node.js", "Envia transações para classificação.")
@@ -32,8 +32,9 @@ System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
     Component(cache_updater, "CacheUpdater", "Node.js", "Atualiza dados recentes no cache.")
   }
 
-  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, transações processadas e recomendações.")
-  Container(fila, "Fila de Processamento", "Redis / RabbitMQ", "Distribui tarefas de processamento.")
+  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, status de processamento e resultados.")
+  Container(fila, "Fila de Processamento", "RabbitMQ", "Distribui tarefas de processamento.")
+  Container(dlq, "Fila de Erros (Dead Letter Queue)", "RabbitMQ", "Armazena mensagens que excederam o limite de tentativas.")
   Container(cache, "Cache", "Redis", "Armazena status e resultados recentes.")
 }
 
@@ -43,10 +44,11 @@ Rel(usuario, controller, "Consulta recomendações", "HTTPS")
 Rel(controller, service, "Chama")
 Rel(service, repository, "Registra solicitação", "PostgreSQL")
 Rel(service, cache_adapter, "Consulta status e resultado", "Redis")
-Rel(service, queue_publisher, "Publica tarefa", "RabbitMQ / Redis")
+Rel(service, queue_publisher, "Publica tarefa", "RabbitMQ")
 
-Rel(queue_publisher, fila, "Envia tarefa", "RabbitMQ / Redis")
-Rel(queue_consumer, fila, "Consome tarefa", "RabbitMQ / Redis")
+Rel(queue_publisher, fila, "Envia tarefa", "RabbitMQ")
+Rel(queue_consumer, fila, "Consome tarefa", "RabbitMQ")
+Rel(queue_consumer, dlq, "Encaminha falhas definitivas", "RabbitMQ")
 Rel(queue_consumer, processor, "Entrega tarefa")
 
 Rel(processor, bank_client, "Busca transações")
