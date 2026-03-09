@@ -6,31 +6,31 @@ LAYOUT_LEFT_RIGHT()
 title C4 Model - Diagrama de Containers
 
 ' Atores
-Person(usuario, "Usuário", "Consulta transações e recebe recomendações.")
+Person(usuario, "Usuário", "Solicita recomendações de gastos por período e consulta o resultado do processamento.")
 
 ' Sistema principal
 System_Boundary(sistema, "Plataforma de Recomendação de Gastos") {
 
   ' Containers
-  Container(api, "API", "Node.js", "Recebe requisições, registra solicitações e expõe consultas de status e resultado.")
+  Container(api, "API", "Node.js", "Recebe id e janela de datas, registra solicitações e expõe consultas de status e resultado.")
 
   Container(fila, "Fila de Processamento", "RabbitMQ", "Recebe tarefas de recomendação publicadas pela API.")
 
   Container(dlq, "Fila de Erros (Dead Letter Queue)", "RabbitMQ", "Armazena mensagens que excederam o limite de tentativas de processamento.")
 
-  Container(worker, "Worker de Processamento", "Node.js", "Consome tarefas, busca transações, classifica dados e persiste resultados.")
+  Container(worker, "Worker de Processamento", "Node.js", "Consome tarefas, consulta transações por período, classifica despesas e persiste resultados.")
 
-  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, status de processamento e resultados.")
+  ContainerDb(db, "Banco de Dados", "PostgreSQL", "Armazena solicitações, janela de consulta, status de processamento e resultados.")
 
-  Container(cache, "Cache", "Redis", "Acelera consultas frequentes de status e resultado.")
+  Container(cache, "Cache", "Redis", "Armazena status e resultados recentes para consultas rápidas.")
 }
 
 ' Sistemas externos
-System_Ext(bancos, "APIs de Bancos Parceiros", "Fornecem as transações do usuário.")
-System_Ext(ml, "Serviço de Classificação", "Classifica transações financeiras.")
+System_Ext(bancos, "APIs de Bancos Parceiros", "Fornecem as transações do usuário para a janela de datas informada.")
+System_Ext(ml, "Serviço de Classificação", "Classifica transações financeiras em categorias de despesa.")
 
 ' Relacionamentos
-Rel(usuario, api, "Consulta recomendações", "HTTPS")
+Rel(usuario, api, "Solicita recomendações e consulta resultados", "HTTPS")
 
 Rel(api, fila, "Publica tarefas de processamento", "RabbitMQ")
 Rel(api, db, "Lê e grava solicitações", "PostgreSQL")
@@ -38,9 +38,9 @@ Rel(api, cache, "Consulta dados recentes", "Redis")
 
 Rel(worker, fila, "Consome tarefas", "RabbitMQ")
 Rel(worker, dlq, "Encaminha falhas definitivas", "RabbitMQ")
-Rel(worker, bancos, "Busca transações", "HTTPS")
+Rel(worker, bancos, "Busca transações por período", "HTTPS")
 Rel(worker, ml, "Classifica transações", "HTTPS")
 Rel(worker, db, "Persiste resultados", "PostgreSQL")
-Rel(worker, cache, "Atualiza dados recentes", "Redis")
+Rel(worker, cache, "Atualiza status e resultados", "Redis")
 
 @enduml

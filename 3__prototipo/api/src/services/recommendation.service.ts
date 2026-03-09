@@ -68,23 +68,24 @@ export class RecommendationService {
     };
   }
 
-  async getRecommendationByRequestId(
-    requestId: string,
-  ): Promise<RecommendationResponse | null> {
-    const cachedValue = await redisClient.get(`recommendation:${requestId}`);
+  async getRecommendationByRequestId(requestId: string) {
+    const cached = await redisClient.get(`recommendation:${requestId}`);
 
-    if (cachedValue) {
-      return JSON.parse(cachedValue) as RecommendationResponse;
+    if (cached) {
+      return JSON.parse(cached);
     }
 
-    const request =
+    const record =
       await this.recommendationRequestRepository.findByRequestId(requestId);
 
-    if (!request) {
+    if (!record) {
       return null;
     }
 
-    return this.mapDatabaseRecordToResponse(request);
+    return {
+      status: record.status,
+      result: record.result,
+    };
   }
 
   private mapDatabaseRecordToResponse(
