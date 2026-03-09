@@ -10,6 +10,13 @@ const service = new RecommendationService(repository);
 const controller = new RecommendationController(service);
 
 recommendationRoutes.get("/", controller.healthCheck.bind(controller));
-recommendationRoutes.post("/recommendations", controller.createRecommendation.bind(controller));
+recommendationRoutes.post(
+  "/recommendations",
+  controller.createRecommendation.bind(controller),
+);
+recommendationRoutes.get(
+  "/recommendations/:requestId",
+  controller.getRecommendationByRequestId.bind(controller),
+);
 
 export { recommendationRoutes };

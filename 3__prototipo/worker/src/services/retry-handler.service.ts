@@ -1,5 +1,4 @@
 import type amqp from "amqplib";
-
 import { recommendationDlqName, recommendationQueueName } from "../infra/rabbitmq.js";
 
 export class RetryHandlerService {

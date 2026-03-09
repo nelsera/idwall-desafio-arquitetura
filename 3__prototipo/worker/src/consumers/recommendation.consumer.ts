@@ -1,5 +1,6 @@
 import type amqp from "amqplib";
 
+import { redisClient } from "../infra/redis.js";
 import { RecommendationRequestRepository } from "../repositories/recommendation-request.repository.js";
 import { RecommendationProcessorService } from "../services/recommendation-processor.service.js";
 import { RetryHandlerService } from "../services/retry-handler.service.js";
@@ -32,6 +33,7 @@ export class RecommendationConsumer {
       channel.ack(message);
     } catch (error) {
       const retryCount = this.retryHandlerService.getRetryCount(message);
+
       const errorMessage =
         error instanceof Error ? error.message : "unknown error";
 
@@ -48,9 +50,7 @@ export class RecommendationConsumer {
           nextRetryCount,
         );
 
-        console.warn(
-          `Republished message for retry ${nextRetryCount}`,
-        );
+        console.warn(`Republished message for retry ${nextRetryCount}`);
 
         channel.ack(message);
         return;
@@ -58,6 +58,27 @@ export class RecommendationConsumer {
 
       if (payload?.requestId) {
         await this.repository.markAsFailed(payload.requestId, errorMessage, retryCount);
+
+        await redisClient.set(
+          `recommendation:${payload.requestId}`,
+          JSON.stringify({
+            requestId: payload.requestId,
+            id: payload.userId,
+            initialDate: payload.initialDate,
+            finalDate: payload.finalDate,
+            status: "failed",
+            requestedAt: payload.requestedAt,
+            processedAt: new Date().toISOString(),
+            result: {
+              message: errorMessage,
+              retryCount,
+            },
+            source: "redis",
+          }),
+          {
+            EX: 3600,
+          },
+        );
       }
 
       await this.retryHandlerService.publishToDlq(

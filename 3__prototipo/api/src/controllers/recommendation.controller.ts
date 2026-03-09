@@ -13,15 +13,34 @@ export class RecommendationController {
 
   async createRecommendation(req: Request, res: Response) {
     try {
-      const { userId } = req.body as { userId?: string };
+      const {
+        id,
+        initialDate,
+        finalDate,
+      } = req.body as {
+        id?: string;
+        initialDate?: string;
+        finalDate?: string;
+      };
 
-      if (!userId) {
+      if (!id) {
         return res.status(400).json({
-          message: "userId is required",
+          message: "id is required",
         });
       }
 
-      const result = await this.recommendationService.createRecommendationRequest(userId);
+      if (!initialDate || !finalDate) {
+        return res.status(400).json({
+          message: "initialDate and finalDate are required",
+        });
+      }
+
+      const result =
+        await this.recommendationService.createRecommendationRequest({
+          userId: id,
+          initialDate,
+          finalDate,
+        });
 
       return res.status(202).json(result);
     } catch (error) {
@@ -29,6 +48,32 @@ export class RecommendationController {
 
       return res.status(500).json({
         message: "failed to create recommendation request",
+      });
+    }
+  }
+
+  async getRecommendationByRequestId(
+    req: Request<{ requestId: string }>,
+    res: Response
+  ) {
+    try {
+      const { requestId } = req.params;
+
+      const result =
+        await this.recommendationService.getRecommendationByRequestId(requestId);
+
+      if (!result) {
+        return res.status(404).json({
+          message: "recommendation request not found",
+        });
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      console.error("Failed to get recommendation by requestId", error);
+
+      return res.status(500).json({
+        message: "failed to get recommendation",
       });
     }
   }
