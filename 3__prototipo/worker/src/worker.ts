@@ -7,11 +7,13 @@ import {
 import { connectRedis } from "./infra/redis.js";
 import { RecommendationExpenseRepository } from "./repositories/recommendation-expense.repository.js";
 import { RecommendationRequestRepository } from "./repositories/recommendation-request.repository.js";
+import { UserBankAccountRepository } from "./repositories/user-bank-account.repository.js";
 import { RecommendationProcessorService } from "./services/recommendation-processor.service.js";
 import { RetryHandlerService } from "./services/retry-handler.service.js";
 
 async function bootstrap() {
   await connectRedis();
+
   console.log("Redis connection is ready");
 
   const channel = await getRabbitChannel();
@@ -27,11 +29,15 @@ async function bootstrap() {
   channel.prefetch(1);
 
   const requestRepository = new RecommendationRequestRepository();
+
   const expenseRepository = new RecommendationExpenseRepository();
+
+  const userBankAccountRepository = new UserBankAccountRepository();
 
   const processorService = new RecommendationProcessorService(
     requestRepository,
     expenseRepository,
+    userBankAccountRepository,
   );
 
   const retryHandlerService = new RetryHandlerService(3);
@@ -51,5 +57,6 @@ async function bootstrap() {
 
 bootstrap().catch((error) => {
   console.error("Failed to bootstrap worker", error);
+
   process.exit(1);
 });

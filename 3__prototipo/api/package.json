@@ -9,12 +9,14 @@
   "dependencies": {
     "amqplib": "^0.10.5",
     "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
     "pg": "^8.13.1",
     "redis": "^4.7.0"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.3.0",
     "@types/pg": "^8.11.10",
     "tsx": "^4.19.2",

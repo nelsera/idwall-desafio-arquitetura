@@ -1,13 +1,17 @@
 import express from "express";
+
 import { postgresPool } from "./infra/postgres.js";
 import { getRabbitChannel } from "./infra/rabbitmq.js";
 import { connectRedis } from "./infra/redis.js";
 import { recommendationRoutes } from "./routes/recommendation.routes.js";
+import { authRoutes } from "./routes/auth.routes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 3000);
 
 app.use(express.json());
+
+app.use(authRoutes);
 app.use(recommendationRoutes);
 
 async function bootstrap() {

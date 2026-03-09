@@ -4,6 +4,7 @@ import { RecommendationController } from "../controllers/recommendation.controll
 import { RecommendationExpenseRepository } from "../repositories/recommendation-expense.repository.js";
 import { RecommendationRequestRepository } from "../repositories/recommendation-request.repository.js";
 import { RecommendationService } from "../services/recommendation.service.js";
+import { authMiddleware } from "../middlewares/auth.middleware.js";
 
 const recommendationRoutes = Router();
 
@@ -22,11 +23,13 @@ recommendationRoutes.get("/", controller.healthCheck.bind(controller));
 
 recommendationRoutes.post(
   "/recommendations",
+  authMiddleware,
   controller.createRecommendation.bind(controller),
 );
 
 recommendationRoutes.get(
   "/recommendations/:requestId",
+  authMiddleware,
   controller.getRecommendationByRequestId.bind(controller),
 );
 

@@ -1,8 +1,10 @@
 import axios from "axios";
+
 import { redisClient } from "../infra/redis.js";
 import { RecommendationExpenseRepository } from "../repositories/recommendation-expense.repository.js";
 import { RecommendationRequestRepository } from "../repositories/recommendation-request.repository.js";
 import type { RecommendationJob } from "../types/recommendation-job.js";
+import { UserBankAccountRepository } from "../repositories/user-bank-account.repository.js";
 
 type Transaction = {
   id: string;
@@ -35,7 +37,7 @@ function mapCategoryName(category: string): string {
     case "fuel":
       return "Fuel";
 
-    default:
+      default:
       return "Other";
   }
 }
@@ -65,6 +67,7 @@ export class RecommendationProcessorService {
   constructor(
     private readonly recommendationRequestRepository: RecommendationRequestRepository,
     private readonly recommendationExpenseRepository: RecommendationExpenseRepository,
+    private readonly userBankAccountRepository: UserBankAccountRepository,
   ) {}
 
   async process(job: RecommendationJob): Promise<void> {
@@ -73,21 +76,32 @@ export class RecommendationProcessorService {
     const classificationApiUrl =
       process.env.CLASSIFICATION_API_URL ?? "http://classification-api-dev:3002";
 
-    const bankResponse = await axios.get<{ userId: string; transactions: Transaction[] }>(
-      `${bankApiUrl}/transactions/${job.userId}`,
-      {
-        params: {
-          initialDate: job.initialDate,
-          finalDate: job.finalDate,
-        },
-      },
-    );
+    const bankAccounts =
+      await this.userBankAccountRepository.findActiveByUserId(job.userId);
 
-    const transactions = bankResponse.data.transactions;
+    if (bankAccounts.length === 0) {
+      throw new Error("no active bank accounts found for user");
+    }
+
+    const allTransactions: Transaction[] = [];
+
+    for (const account of bankAccounts) {
+      const bankResponse = await axios.get<{ userId: string; transactions: Transaction[] }>(
+        `${bankApiUrl}/transactions/${account.bankUserId}`,
+        {
+          params: {
+            initialDate: job.initialDate,
+            finalDate: job.finalDate,
+          },
+        },
+      );
+
+      allTransactions.push(...bankResponse.data.transactions);
+    }
 
     const classificationResponse = await axios.post<{ transactions: ClassifiedTransaction[] }>(
       `${classificationApiUrl}/classify`,
-      { transactions },
+      { transactions: allTransactions },
     );
 
     const classifiedTransactions = classificationResponse.data.transactions;

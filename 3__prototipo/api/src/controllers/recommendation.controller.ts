@@ -1,5 +1,14 @@
 import type { Request, Response } from "express";
+
 import { RecommendationService } from "../services/recommendation.service.js";
+
+type AuthRequest = Request & {
+  user?: {
+    sub: string;
+    email: string;
+    name: string;
+  };
+};
 
 export class RecommendationController {
   constructor(private readonly recommendationService: RecommendationService) {}
@@ -11,21 +20,18 @@ export class RecommendationController {
     });
   }
 
-  async createRecommendation(req: Request, res: Response) {
+  async createRecommendation(req: AuthRequest, res: Response) {
     try {
-      const {
-        id,
-        initialDate,
-        finalDate,
-      } = req.body as {
-        id?: string;
+      const { initialDate, finalDate } = req.body as {
         initialDate?: string;
         finalDate?: string;
       };
 
-      if (!id) {
-        return res.status(400).json({
-          message: "id is required",
+      const userId = req.user?.sub;
+
+      if (!userId) {
+        return res.status(401).json({
+          message: "unauthorized",
         });
       }
 
@@ -37,7 +43,7 @@ export class RecommendationController {
 
       const result =
         await this.recommendationService.createRecommendationRequest({
-          userId: id,
+          userId,
           initialDate,
           finalDate,
         });
