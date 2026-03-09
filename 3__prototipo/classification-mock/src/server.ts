@@ -20,15 +20,15 @@ function classifyTransaction(description: string): string {
   const normalizedDescription = description.toLowerCase();
 
   if (normalizedDescription.includes("netflix") || normalizedDescription.includes("spotify")) {
-    return "entertainment";
+    return "entretenimento";
   }
 
   if (normalizedDescription.includes("uber") || normalizedDescription.includes("99")) {
-    return "transport";
+    return "transporte";
   }
 
   if (normalizedDescription.includes("ifood") || normalizedDescription.includes("restaurant")) {
-    return "food";
+    return "comida";
   }
 
   if (normalizedDescription.includes("shell") || normalizedDescription.includes("ipiranga")) {

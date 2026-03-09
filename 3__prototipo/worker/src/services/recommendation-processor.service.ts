@@ -3,8 +3,8 @@ import axios from "axios";
 import { redisClient } from "../infra/redis.js";
 import { RecommendationExpenseRepository } from "../repositories/recommendation-expense.repository.js";
 import { RecommendationRequestRepository } from "../repositories/recommendation-request.repository.js";
-import type { RecommendationJob } from "../types/recommendation-job.js";
 import { UserBankAccountRepository } from "../repositories/user-bank-account.repository.js";
+import type { RecommendationJob } from "../types/recommendation-job.js";
 
 type Transaction = {
   id: string;
@@ -25,19 +25,19 @@ type AggregatedExpense = {
 
 function mapCategoryName(category: string): string {
   switch (category.toLowerCase()) {
-    case "food":
-      return "Food";
+    case "comida":
+      return "Comida";
 
-    case "transport":
-      return "Transport";
+    case "transporte":
+      return "Transporte";
 
-    case "entertainment":
-      return "Entertainment";
+    case "entretenimento":
+      return "Entretenimento";
 
     case "fuel":
       return "Fuel";
 
-      default:
+    default:
       return "Other";
   }
 }
@@ -112,19 +112,26 @@ export class RecommendationProcessorService {
 
     await this.recommendationRequestRepository.markAsCompleted(job.requestId);
 
+    const payload = {
+      requestId: job.requestId,
+      status: "completed",
+      result: {
+        id: job.userId,
+        expenses,
+      },
+    };
+
     await redisClient.set(
       `recommendation:${job.requestId}`,
-      JSON.stringify({
-        requestId: job.requestId,
-        status: "completed",
-        result: {
-          id: job.userId,
-          expenses,
-        },
-      }),
+      JSON.stringify(payload),
       {
         EX: 3600,
       },
+    );
+
+    await redisClient.publish(
+      "recommendation.completed",
+      JSON.stringify(payload),
     );
 
     console.log(`Job ${job.requestId} processed successfully`);

@@ -155,6 +155,27 @@ services:
       - ./classification-mock:/app
       - /app/node_modules
 
+  web-client-dev:
+    profiles: ["dev"]
+    build:
+      context: ./web-client
+      dockerfile: Dockerfile.dev
+    container_name: recommendation-web-client-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    environment:
+      NODE_ENV: development
+      VITE_API_URL: http://localhost:3000
+      VITE_SOCKET_URL: http://localhost:3000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./web-client:/app
+      - /app/node_modules
+    depends_on:
+      api-dev:
+        condition: service_started
+
   api:
     profiles: ["prod"]
     build:
@@ -223,6 +244,22 @@ services:
       PORT: 3002
     ports:
       - "3002:3002"
+
+  web-client:
+    profiles: ["prod"]
+    build:
+      context: ./web-client
+      dockerfile: Dockerfile
+    container_name: recommendation-web-client
+    environment:
+      NODE_ENV: production
+      VITE_API_URL: http://localhost:3000
+      VITE_SOCKET_URL: http://localhost:3000
+    ports:
+      - "4173:4173"
+    depends_on:
+      api:
+        condition: service_started
 
 volumes:
   postgres_data:

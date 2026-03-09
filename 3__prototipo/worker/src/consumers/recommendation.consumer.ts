@@ -57,27 +57,32 @@ export class RecommendationConsumer {
       }
 
       if (payload?.requestId) {
-        await this.repository.markAsFailed(payload.requestId, errorMessage, retryCount);
+        await this.repository.markAsFailed(
+          payload.requestId,
+          errorMessage,
+          retryCount,
+        );
+
+        const failedPayload = {
+          requestId: payload.requestId,
+          status: "failed",
+          result: {
+            message: errorMessage,
+            retryCount,
+          },
+        };
 
         await redisClient.set(
           `recommendation:${payload.requestId}`,
-          JSON.stringify({
-            requestId: payload.requestId,
-            id: payload.userId,
-            initialDate: payload.initialDate,
-            finalDate: payload.finalDate,
-            status: "failed",
-            requestedAt: payload.requestedAt,
-            processedAt: new Date().toISOString(),
-            result: {
-              message: errorMessage,
-              retryCount,
-            },
-            source: "redis",
-          }),
+          JSON.stringify(failedPayload),
           {
             EX: 3600,
           },
+        );
+
+        await redisClient.publish(
+          "recommendation.failed",
+          JSON.stringify(failedPayload),
         );
       }
 

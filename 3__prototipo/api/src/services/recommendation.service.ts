@@ -13,10 +13,16 @@ type CreateRecommendationInput = {
   finalDate: string;
 };
 
-type RecommendationResponse = {
+export type RecommendationResponse = {
   requestId: string;
   status: string;
-  result?: unknown;
+  result?: {
+    id: string;
+    expenses: Array<{
+      category: string;
+      totalAmount: number;
+    }>;
+  } | unknown;
 };
 
 export class RecommendationService {

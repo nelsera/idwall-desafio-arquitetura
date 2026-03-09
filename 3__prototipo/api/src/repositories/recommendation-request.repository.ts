@@ -19,6 +19,16 @@ export type RecommendationRequestRecord = {
   processedAt: string | null;
 };
 
+type RecommendationRequestRow = {
+  request_id: string;
+  user_id: string;
+  initial_date: string;
+  final_date: string;
+  status: string;
+  requested_at: string;
+  processed_at: string | null;
+};
+
 export class RecommendationRequestRepository {
   async create(input: CreateRecommendationRequestInput): Promise<void> {
     await postgresPool.query(
@@ -47,7 +57,7 @@ export class RecommendationRequestRepository {
   async findByRequestId(
     requestId: string,
   ): Promise<RecommendationRequestRecord | null> {
-    const result = await postgresPool.query(
+    const result = await postgresPool.query<RecommendationRequestRow>(
       `
       SELECT
         request_id,
@@ -59,6 +69,7 @@ export class RecommendationRequestRepository {
         processed_at
       FROM recommendation_requests
       WHERE request_id = $1
+      LIMIT 1
       `,
       [requestId],
     );
